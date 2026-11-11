@@ -34,3 +34,9 @@
    let a_rather_long_line = "otherwise this is squeezed into the width left over";
    ```
 2. Text after the block starts on a new line again.
+3. A table inside a list item also gets a line of its own:
+
+   | Column | Another column |
+   |--------|----------------|
+   | cell   | otherwise squeezed into the width left over |
+4. Text after the table starts on a new line again.

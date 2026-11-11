@@ -1048,7 +1048,12 @@ impl CommonMarkViewerInternal {
         max_width: f32,
     ) {
         if self.is_table {
-            self.line.try_insert_start(ui);
+            // Like a code block, a table always needs a line of its own. Inside a
+            // list `try_insert_start` does nothing, so the table would be laid out
+            // after the item's text with only the width remaining on that line.
+            if !self.line.should_not_start_newline_forced {
+                newline(ui);
+            }
 
             let id = ui.make_persistent_id(("_table", self.curr_table));
             self.curr_table += 1;
@@ -1153,7 +1158,9 @@ impl CommonMarkViewerInternal {
                 self.line.should_end_newline_forced = false;
             }
 
-            self.line.try_insert_end(ui);
+            if self.line.should_end_newline_forced {
+                newline(ui);
+            }
         }
     }
 
@@ -1846,6 +1853,51 @@ mod perf_tests {
         assert!(
             delta <= 1,
             "expected at most 1 full render across {FRAMES} steady-state frames, got {delta}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use crate::{CommonMarkCache, CommonMarkViewer};
+
+    fn rendered_height(text: &str) -> f32 {
+        let ctx = egui::Context::default();
+        ctx.set_fonts(egui::FontDefinitions::default());
+        let mut height = 0.0;
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(800.0, 600.0),
+            )),
+            ..Default::default()
+        };
+        let output = ctx.run_ui(input, |ui| {
+            height = CommonMarkViewer::new()
+                .show(ui, &mut CommonMarkCache::default(), text)
+                .response
+                .rect
+                .height();
+        });
+        output.drop_without_applying_deltas();
+        height
+    }
+
+    /// A table inside a list item must get a line of its own instead of being
+    /// laid out after the item's text with only the width left on that line.
+    #[test]
+    fn table_inside_list_item_starts_on_its_own_line() {
+        let table = "| a | b |\n|---|---|\n| 1 | 2 |\n";
+        let text_only = rendered_height("1. Some text:\n");
+        let table_only = rendered_height(table);
+        let indented = table
+            .lines()
+            .map(|l| format!("   {l}\n"))
+            .collect::<String>();
+        let both = rendered_height(&format!("1. Some text:\n\n{indented}"));
+        assert!(
+            both >= text_only + table_only - 1.0,
+            "table shares the text's line: {both} < {text_only} + {table_only}"
         );
     }
 }

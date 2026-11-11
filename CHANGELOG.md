@@ -5,6 +5,8 @@
 ### Fixed
 
 - Fixed codeblocks expanding past the ui in some cases, causing the parent to grow
+- Tables inside list items get a line of their own instead of being squeezed into
+  the width left over after the item's text, like code blocks since #105
 
 ## 0.26.0 - 2026-10-15
 
